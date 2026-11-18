@@ -1,65 +1,99 @@
 # ESP32-S3-CAM Quick Test 📷
 
-Projeto rápido de testes para placa **ESP32-S3 com câmera OV2640** (compatível com PlatformIO e Arduino IDE).
+Repositório de teste, experimentação e validação de hardware para o microcontrolador **ESP32-S3 com sensor de câmera OV2640**.
 
 ---
 
-## ⚡ Guia Rápido de Teste
+## 🎯 Objetivo do Projeto
 
-### 1. Requisitos e Drivers no Computador
-- **Chip USB do ESP32-S3**:
-  - A maioria dos módulos ESP32-S3 possui conector **USB Type-C nativo** (CDC OTG). No macOS / Linux moderno, o driver já é **nativo** (não precisa instalar nada).
-  - Se sua placa usar um chip serial intermediário (ex: CH340, CP2102 ou CH9102), certifique-se de ter o respectivo driver serial instalado (ex: *CH34xVCPDriver* no Mac).
-- **Modo Bootloader (Download Mode)**:
-  - Se a IDE não reconhecer ou falhar ao fazer o upload:
-    1. Segure o botão **BOOT** (ou GPIO 0).
-    2. Pressione e solte o botão **RST** (Reset).
-    3. Solte o botão **BOOT**.
-    4. Agora a porta USB estará em modo de gravação.
+1. **Validação Rápida de Hardware**:
+   - Testar o funcionamento da câmera OV2640 acoplada ao ESP32-S3.
+   - Validar a alocação e detecção de **PSRAM OPI** (essencial para buffers de imagem de alta resolução e streaming sem travamentos).
+   - Verificar a conectividade Wi-Fi e tempo de resposta de captura de frames.
 
----
+2. **Base Modular para Projetos Futuros**:
+   - Servir como ponto de partida (boilerplate) limpo para implementações mais avançadas, como:
+     - Streaming de vídeo MJPEG contínuo.
+     - Reconhecimento facial ou detecção de objetos (ESP-WHO / TinyML / Edge Impulse).
+     - Integração com MQTT / WebSockets / Home Assistant / API de visão computacional.
+     - Captura de fotos sob demanda via botão físico ou sensor infravermelho/PIR.
 
-### 2. Configurações Críticas (Diferença do ESP32 antigo)
-O **ESP32-S3** possui barramento e gerenciamento de memória diferentes do antigo ESP32-CAM (AI-Thinker):
-1. **PSRAM Habilitada**: A câmera precisa de PSRAM para resoluções acima de QVGA e buffers de JPEG.
-   - No `platformio.ini`: `build_flags = -DBOARD_HAS_PSRAM`, `memory_type = qio_opi`.
-   - Na Arduino IDE: Em *Tools -> PSRAM -> "OPI PSRAM"* e *Tools -> USB CDC On Boot -> "Enabled"*.
-2. **Pinout**: Os pinos da câmera mudaram em relação ao ESP32 clássico. O arquivo `src/camera_pins.h` já traz o mapeamento padrão do ESP32-S3 (S3-EYE / Freenove / Genérico).
+3. **Multiplataforma**:
+   - Totalmente compatível com **PlatformIO** (VS Code / CLI) e **Arduino IDE 2.x**.
 
 ---
 
-### 3. Como Rodar com PlatformIO (VS Code / Terminal)
+## 📁 Estrutura do Repositório
 
-1. Abra a pasta do projeto:
+```text
+esp32s3-cam-quicktest/
+├── platformio.ini         # Configuração de build (PSRAM, Flash 16MB, USB CDC)
+├── src/
+│   ├── camera_pins.h      # Mapeamento oficial dos pinos do barramento da câmera (S3-EYE)
+│   └── main.cpp           # Servidor Web embarcado para captura instantânea e teste de snapshot
+├── .gitignore
+└── README.md              # Documentação completa de uso e setup
+```
+
+---
+
+## ⚡ Guia de Setup e Teste
+
+### 1. Drivers e Reconhecimento USB (macOS / Linux / Windows)
+- **USB CDC Nativo**: A maioria dos módulos ESP32-S3 possui USB nativo direto ao chip. No macOS e Linux modernos, o driver é reconhecido automaticamente sem necessidade de instalação.
+- **Placas com chip ponte (CH340 / CP2102)**: Instale o respectivo driver serial do fabricante caso o dispositivo não apareça em `/dev/cu.*` ou `COM*`.
+- **Modo Bootloader (Download Mode)**: Se o upload falhar por falta de sincronização com o bootloader:
+  1. Mantenha o botão **BOOT** pressionado.
+  2. Pressione e solte o botão **RST (Reset)**.
+  3. Solte o botão **BOOT**.
+  4. Dispare a gravação novamente.
+
+---
+
+### 2. Configurações Críticas do ESP32-S3
+
+| Parâmetro | Valor Recomendado | Motivo |
+|---|---|---|
+| **PSRAM** | `OPI PSRAM` / `-DBOARD_HAS_PSRAM` | Permite usar resoluções SVGA/XGA/HD e manter buffers em DMA |
+| **USB CDC On Boot** | `Enabled` / `-DARDUINO_USB_CDC_ON_BOOT=1` | Redireciona a saída do `Serial.print` para a USB Type-C nativa |
+| **Flash Partition** | `default_16MB` ou `Huge APP` | O binário com suporte a Wi-Fi e driver de câmera é pesado |
+| **Pinout Header** | `CAMERA_MODEL_ESP32S3_EYE` | O ESP32-S3 possui barramento de pinos diferente do ESP32 clássico |
+
+---
+
+### 3. Como Rodar com PlatformIO
+
+1. Clone ou abra a pasta local do projeto:
    ```bash
    cd esp32s3-cam-quicktest
    ```
-2. Edite o arquivo `src/main.cpp` e coloque o **SSID** e **Senha** da sua rede Wi-Fi.
-3. Conecte o ESP32-S3 na porta USB.
-4. Compile e envie:
+2. Abra `src/main.cpp` e configure suas credenciais Wi-Fi:
+   ```cpp
+   const char* ssid = "NOME_DO_SEU_WIFI";
+   const char* password = "SENHA_DO_SEU_WIFI";
+   ```
+3. Conecte a placa na porta USB do computador.
+4. Compile, envie e abra o monitor serial:
    ```bash
    pio run -t upload -t monitor
    ```
-5. Veja o IP que aparecerá no monitor serial (ex: `http://192.168.1.150`).
-6. Abra esse endereço no seu navegador para ver o painel e testar o snapshot da câmera!
+5. Anote o IP exibido no terminal (ex: `http://192.168.1.150`) e abra no navegador web.
 
 ---
 
 ### 4. Como Rodar na Arduino IDE
 
-Se preferir testar pela **Arduino IDE**:
-1. Instale o pacote de placas **esp32 by Espressif Systems** (versão 2.0.x ou superior) no Board Manager.
-2. Em **Tools -> Board**, selecione **ESP32S3 Dev Module**.
-3. Configure em **Tools**:
+1. Instale o pacote de placas **esp32 by Espressif Systems** (>= 2.0.11 ou 3.x) no Board Manager.
+2. Selecione a placa: **ESP32S3 Dev Module**.
+3. Em **Tools**, configure:
    - **USB CDC On Boot**: *Enabled*
-   - **Flash Size**: *16MB (ou 8MB de acordo com sua placa)*
-   - **Partition Scheme**: *Huge APP (3MB No OTA / 16MB SPIFFS)*
    - **PSRAM**: *OPI PSRAM*
-4. Abra o exemplo oficial em:
+   - **Flash Size**: *16MB* (ou o tamanho da sua placa)
+   - **Partition Scheme**: *Huge APP (3MB No OTA)*
+4. Abra o exemplo nativo da Espressif em:
    `File -> Examples -> ESP32 -> Camera -> CameraWebServer`
-5. No arquivo de exemplo, descomente:
+5. No topo de `CameraWebServer.ino`, comente o modelo default e ative:
    ```cpp
    #define CAMERA_MODEL_ESP32S3_EYE // Has PSRAM
    ```
-   (comente os outros modelos de câmera).
-6. Coloque seu Wi-Fi, faça o Upload e acesse o IP pelo navegador!
+6. Insira seu Wi-Fi e grave na placa.
